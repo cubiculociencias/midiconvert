@@ -1,17 +1,12 @@
-# Usa una imagen base de Python 3.9
-FROM python:3.9-slim
-
-# Instala las herramientas de compilación y las dependencias necesarias del sistema
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    libsndfile1 \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Usamos una imagen oficial de TensorFlow con Python 3.9
+# Esta imagen ya tiene todas las dependencias del sistema y tensorflow instalado.
+FROM tensorflow/tensorflow:2.11.0
 
 # Establece el directorio de trabajo
 WORKDIR /app
 
-# Copia los archivos de requerimientos e instálalos
+# Copia solo los requerimientos para instalar las dependencias restantes
+# Nota: TensorFlow ya está instalado, así que puedes quitarlo de requirements.txt si quieres.
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -25,5 +20,4 @@ RUN curl -o /app/onsets_frames_wavinput.tflite https://storage.googleapis.com/ma
 ENV PORT 8080
 
 # Inicia la aplicación usando Gunicorn
-# El formato es: gunicorn --bind [IP]:[PUERTO] [NOMBRE_MODULO]:[NOMBRE_APP]
 CMD ["gunicorn", "--bind", "0.0.0.0:8080", "main:app"]
