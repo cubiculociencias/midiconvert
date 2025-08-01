@@ -2,3 +2,4 @@ tensorflow==2.11.0
 magenta==2.1.2
 librosa==0.9.1
 flask==2.2.2
+gunicorn==20.1.0
