@@ -1,68 +1,64 @@
+from flask import Flask, request, jsonify
 import os
+import logging
 import tempfile
-from flask import Flask, request, send_file
-from magenta.models.transcription import audio_label_data_utils
-from magenta.models.transcription import model as transcription_model
-from magenta.models.transcription import constants
-from magenta.music import midi_io
-from note_seq.protobuf import music_pb2
+from utils.tflite_model import Model
+from flask_cors import CORS
+import librosa
+import numpy as np
+import pretty_midi
 
 app = Flask(__name__)
+CORS(app)
 
-# Cargar el modelo de Magenta al inicio del servicio
-# Este paso es intensivo, por eso se hace una sola vez
-# Ahora usamos el archivo TFLite
-tflite_path = os.path.join(os.getcwd(), 'onsets_frames_wavinput.tflite')
+# Configuración de logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-hparams = transcription_model.get_default_hparams()
-# Pasamos la ruta del modelo TFLite en la configuración
-hparams.parse(f'tflite_path={tflite_path}')
-
-model = transcription_model.OnsetsFramesTranscriptionModel(
-    hparams=hparams,
-    session=None,
-    checkpoint_path=None  # No se necesita un checkpoint, el TFLite está en hparams
-)
+# Carga del modelo
+MODEL_PATH = "models/onsets_frames_wavinput.tflite"
+model = Model(MODEL_PATH)
 
 @app.route('/transcribe', methods=['POST'])
-def transcribe_audio():
-    """
-    Endpoint para transcribir un archivo de audio a MIDI.
-    """
-    if 'audio' not in request.files:
-        return 'No se encontró el archivo de audio', 400
-
-    audio_file = request.files['audio']
-
-    # Guardar el archivo de audio temporalmente
-    temp_audio_path = tempfile.NamedTemporaryFile(delete=False, suffix='.wav').name
-    audio_file.save(temp_audio_path)
-
-    try:
-        # Preprocesar el audio y ejecutar la transcripción
-        features = audio_label_data_utils.process_audio(
-            temp_audio_path,
-            hparams,
-            constants.MIN_LENGTH,
-            transcription_model.CHANNELS
-        )
-        transcribed_sequence = model.predict(features)
-        
-        # Guardar la transcripción como un archivo MIDI
-        temp_midi_path = tempfile.NamedTemporaryFile(delete=False, suffix='.mid').name
-        midi_io.sequence_proto_to_midi_file(transcribed_sequence, temp_midi_path)
-        
-        # Enviar el archivo MIDI al cliente
-        return send_file(temp_midi_path, as_attachment=True, mimetype='audio/midi')
-
-    except Exception as e:
-        return f'Ocurrió un error en la transcripción: {e}', 500
+def transcribe():
+    if 'file' not in request.files:
+        return jsonify({"error": "No file provided"}), 400
     
-    finally:
-        # Limpiar los archivos temporales
-        os.remove(temp_audio_path)
-        if os.path.exists(temp_midi_path):
-            os.remove(temp_midi_path)
+    audio_file = request.files['file']
+    
+    try:
+        # Guardar temporalmente el archivo
+        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
+            audio_file.save(tmp.name)
+            
+            # Procesamiento del audio (similar al Colab)
+            audio, sr = librosa.load(tmp.name, sr=16000, mono=True)
+            
+            # Asegurar que la duración sea múltiplo de hop_size (como en el Colab)
+            hop_size = 512
+            expected_length = (len(audio) // hop_size) * hop_size
+            audio = audio[:expected_length]
+            
+            # Normalización (como en el Colab)
+            audio = audio / np.max(np.abs(audio))
+            
+            # Realizar la transcripción
+            sequence_prediction = model.transcribe(audio)
+            
+            # Convertir a PrettyMIDI
+            midi_data = sequence_prediction.to_pretty_midi()
+            
+            # Guardar a archivo MIDI temporal
+            with tempfile.NamedTemporaryFile(suffix='.mid', delete=True) as midi_tmp:
+                midi_data.write(midi_tmp.name)
+                with open(midi_tmp.name, 'rb') as f:
+                    midi_bytes = f.read()
+            
+            return midi_bytes, 200, {'Content-Type': 'application/octet-stream'}
+    
+    except Exception as e:
+        logger.error(f"Error during transcription: {e}")
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=int(os.environ.get('PORT', 8080)))
+    app.run(debug=True)
