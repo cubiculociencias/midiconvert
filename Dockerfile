@@ -2,7 +2,6 @@
 FROM python:3.9-slim
 
 # Instala las herramientas de compilación y las dependencias necesarias del sistema
-# para que los paquetes de Python puedan compilar sus dependencias nativas.
 RUN apt-get update && apt-get install -y \
     build-essential \
     libsndfile1 \
@@ -25,5 +24,6 @@ RUN curl -o /app/onsets_frames_wavinput.tflite https://storage.googleapis.com/ma
 # Establece la variable de entorno para el puerto
 ENV PORT 8080
 
-# Inicia la aplicación cuando el contenedor se inicie
-CMD ["python", "main.py"]
+# Inicia la aplicación usando Gunicorn
+# El formato es: gunicorn --bind [IP]:[PUERTO] [NOMBRE_MODULO]:[NOMBRE_APP]
+CMD ["gunicorn", "--bind", "0.0.0.0:8080", "main:app"]
