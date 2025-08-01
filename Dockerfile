@@ -1,6 +1,14 @@
 # Usa una imagen base de Python 3.9
 FROM python:3.9-slim
 
+# Instala las herramientas de compilación y las dependencias necesarias del sistema
+# para que los paquetes de Python puedan compilar sus dependencias nativas.
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libsndfile1 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
 # Establece el directorio de trabajo
 WORKDIR /app
 
