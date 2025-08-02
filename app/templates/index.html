@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Audio to MIDI Transcriber</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .container { text-align: center; }
+        #recorder { margin: 20px 0; }
+        #audio-playback { width: 100%; margin: 10px 0; }
+        #status { margin: 10px 0; color: #666; }
+        button { padding: 10px 15px; background: #4285f4; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:disabled { background: #cccccc; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Audio to MIDI Transcriber</h1>
+        <p>Grab audio or upload a file to convert it to MIDI</p>
+        
+        <div id="recorder">
+            <button id="recordButton">Start Recording</button>
+            <button id="stopButton" disabled>Stop Recording</button>
+            <button id="uploadButton">Upload File</button>
+            <input type="file" id="fileInput" accept="audio/*" style="display: none;">
+        </div>
+        
+        <audio id="audio-playback" controls></audio>
+        <div id="status">Ready to record or upload</div>
+        
+        <div id="result" style="display: none;">
+            <h3>Conversion complete!</h3>
+            <a id="downloadLink" href="#"><button>Download MIDI File</button></a>
+        </div>
+    </div>
+
+    <script>
+        // Variables globales
+        let mediaRecorder;
+        let audioChunks = [];
+        
+        // Elementos del DOM
+        const recordButton = document.getElementById('recordButton');
+        const stopButton = document.getElementById('stopButton');
+        const uploadButton = document.getElementById('uploadButton');
+        const fileInput = document.getElementById('fileInput');
+        const audioPlayback = document.getElementById('audio-playback');
+        const statusDiv = document.getElementById('status');
+        const resultDiv = document.getElementById('result');
+        const downloadLink = document.getElementById('downloadLink');
+        
+        // Manejar la grabación de audio
+        recordButton.addEventListener('click', async () => {
+            try {
+                statusDiv.textContent = 'Requesting microphone...';
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                
+                mediaRecorder.ondataavailable = event => {
+                    audioChunks.push(event.data);
+                };
+                
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                    const audioUrl = URL.createObjectURL(audioBlob);
+                    audioPlayback.src = audioUrl;
+                    
+                    // Enviar a servidor para conversión
+                    await convertAudio(audioBlob);
+                };
+                
+                mediaRecorder.start();
+                statusDiv.textContent = 'Recording...';
+                recordButton.disabled = true;
+                stopButton.disabled = false;
+            } catch (err) {
+                statusDiv.textContent = 'Error: ' + err.message;
+                console.error(err);
+            }
+        });
+        
+        stopButton.addEventListener('click', () => {
+            mediaRecorder.stop();
+            mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            statusDiv.textContent = 'Processing recording...';
+            recordButton.disabled = false;
+            stopButton.disabled = true;
+        });
+        
+        // Manejar subida de archivos
+        uploadButton.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        fileInput.addEventListener('change', async () => {
+            if (fileInput.files.length > 0) {
+                statusDiv.textContent = 'Processing file...';
+                await convertAudio(fileInput.files[0]);
+            }
+        });
+        
+        // Función para enviar audio al servidor y obtener MIDI
+        async function convertAudio(audioBlob) {
+            try {
+                const formData = new FormData();
+                formData.append('file', audioBlob, 'recording.wav');
+                
+                const response = await fetch('/transcribe', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const midiBlob = await response.blob();
+                    const midiUrl = URL.createObjectURL(midiBlob);
+                    
+                    downloadLink.href = midiUrl;
+                    downloadLink.download = 'transcription.mid';
+                    resultDiv.style.display = 'block';
+                    statusDiv.textContent = 'Conversion successful!';
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Conversion failed');
+                }
+            } catch (err) {
+                statusDiv.textContent = 'Error: ' + err.message;
+                console.error(err);
+            }
+        }
+    </script>
+</body>
+</html>
