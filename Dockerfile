@@ -2,31 +2,39 @@ FROM python:3.9-slim
 
 WORKDIR /app
 
-# 1. Primero actualiza los repositorios y instala dependencias disponibles
+# 1. Instalar dependencias del sistema basadas en el Colab
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     git curl ffmpeg libsndfile1 unzip \
-    build-essential libasound2-dev libjack-dev && \
+    build-essential libasound2-dev libjack-dev \
+    software-properties-common && \
+    add-apt-repository non-free && \
+    apt-get update && \
+    apt-get install -y fluidsynth && \
     rm -rf /var/lib/apt/lists/*
 
-# 2. Instala libfluidsynth desde una fuente alternativa
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    wget ca-certificates && \
-    wget http://ftp.de.debian.org/debian/pool/main/f/fluidsynth/libfluidsynth2_2.1.1-1_amd64.deb && \
-    dpkg -i libfluidsynth2_2.1.1-1_amd64.deb || apt-get install -yf && \
-    rm libfluidsynth2_2.1.1-1_amd64.deb && \
-    rm -rf /var/lib/apt/lists/*
+# 2. Instalar JAX para CPU (como se hace en el Colab)
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir "jax[cpu]"==0.3.25 -f https://storage.googleapis.com/jax-releases/jax_releases.html
 
-# 3. Instala Gunicorn primero para evitar problemas
-RUN pip install --no-cache-dir gunicorn==20.1.0
-
-# 4. Copia e instala los requirements de Python
+# 3. Instalar dependencias de Python
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Resto de tu configuración...
-# (Aquí va tu configuración para MT3, copia de archivos, etc.)
+# 4. Clonar MT3 (versión simplificada del proceso del Colab)
+RUN git clone https://github.com/magenta/mt3.git && \
+    cd mt3 && \
+    pip install -e . && \
+    cd ..
 
-# 5. Comando de inicio mejorado
+# 5. Descargar checkpoints (como en el Colab)
+RUN mkdir -p /app/checkpoints && \
+    curl -L https://storage.googleapis.com/mt3/checkpoints.zip -o checkpoints.zip && \
+    unzip checkpoints.zip -d /app/checkpoints && \
+    rm checkpoints.zip
+
+# 6. Configurar la aplicación Flask
+COPY . .
+
+# 7. Comando de inicio optimizado
 CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8080} --workers 1 --threads 4 --timeout 120 main:app"]
