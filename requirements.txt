@@ -1,6 +1,7 @@
-flask
-note-seq
-tensorflow==2.11.0
-ddsp
-librosa
-gin-config
+flask==2.0.1
+gunicorn==20.1.0
+note-seq==0.0.1
+torch>=1.10.0
+git+https://github.com/magenta/mt3.git
+librosa==0.8.1
+soundfile==0.10.3
