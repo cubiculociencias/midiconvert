@@ -1,34 +1,27 @@
 FROM python:3.9-slim
 
+# Instalar dependencias del sistema
+RUN apt-get update && apt-get install -y \
+    libfluidsynth3 \
+    build-essential \
+    libasound2-dev \
+    libjack-dev \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# 1. Instalar dependencias del sistema
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    git curl ffmpeg libsndfile1 unzip \
-    build-essential libasound2-dev libjack-dev \
-    software-properties-common && \
-    add-apt-repository non-free && \
-    apt-get install -y fluidsynth && \
-    rm -rf /var/lib/apt/lists/*
-
-# 2. Instalar dependencias Python
+# Copiar e instalar dependencias Python primero
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 3. Clonar e instalar MT3
-RUN git clone https://github.com/magenta/mt3.git && \
-    cd mt3 && pip install -e . && cd ..
+# Clonar solo el código necesario de MT3
+RUN git clone --depth 1 --branch=main https://github.com/magenta/mt3 mt3_tmp && \
+    mv mt3_tmp/mt3 ./mt3 && \
+    rm -rf mt3_tmp
 
-# 4. Descargar checkpoints del modelo (PARTE CLAVE AÑADIDA)
-RUN mkdir -p /app/checkpoints && \
-    curl -L https://storage.googleapis.com/mt3/checkpoints.zip -o checkpoints.zip && \
-    unzip checkpoints.zip -d /app/checkpoints && \
-    rm checkpoints.zip
+# Copiar archivos de la aplicación
+COPY . .
 
-# 5. Configurar entrypoint
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-COPY main.py utils/ /app/
-
-ENTRYPOINT ["/entrypoint.sh"]
+# Descargar checkpoints al iniciar
+CMD bash -c "python download_checkpoints.py && gunicorn --bind :$PORT --workers 1 --threads 8 --timeout 0 app:app"
