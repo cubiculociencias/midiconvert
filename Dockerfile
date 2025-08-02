@@ -21,6 +21,9 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
+# ✅ Instalar t5x desde GitHub antes de usar mt3
+RUN pip install git+https://github.com/google-research/t5x.git@main
+
 # Clonar MT3 desde GitHub (sólo el código fuente necesario)
 RUN git clone --depth 1 --branch=main https://github.com/magenta/mt3 && \
     mv mt3/mt3 ./mt3 && \
