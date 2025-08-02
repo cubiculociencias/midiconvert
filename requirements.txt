@@ -1,8 +1,5 @@
-flask
-librosa
+Flask
+gunicorn
+flask-cors
 note-seq
 tensorflow==2.11.0
-ddsp
-gin-config
-pyfluidsynth==1.3.0
-jax[cuda12] @ https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
