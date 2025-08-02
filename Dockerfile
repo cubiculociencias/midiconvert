@@ -6,6 +6,10 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     libasound2-dev \
     libjack-dev \
+    libsndfile1 \
+    ffmpeg \
+    libportaudio2 \
+    libopenblas-base \
     wget \
     curl \
     && rm -rf /var/lib/apt/lists/*
@@ -18,7 +22,8 @@ WORKDIR /app
 
 # Instalar dependencias Python primero para caching
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --upgrade pip setuptools wheel && \
+    pip install -r requirements.txt --no-cache-dir
 
 # Clonar MT3 mínimo
 RUN git clone --depth 1 --branch=main https://github.com/magenta/mt3 && \
