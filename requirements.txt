@@ -1,5 +1,7 @@
-Flask
-gunicorn
-flask-cors
-note-seq
+flask==2.2.5
+numpy==1.21.6
+pretty_midi==0.2.9
+gunicorn==20.1.0
+flask-cors==3.0.10
 tensorflow==2.11.0
+note-seq==0.0.3
