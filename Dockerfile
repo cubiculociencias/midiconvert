@@ -1,4 +1,4 @@
-FROM python:3.9-slim
+FROM python:3.10-slim
 
 # Instalar dependencias del sistema
 RUN apt-get update && apt-get install -y \
@@ -15,14 +15,13 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Configurar entorno Python
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/app
-
 WORKDIR /app
+ENV PYTHONUNBUFFERED=1
+
 
 # Instalar dependencias Python primero para caching
 COPY requirements.txt .
-RUN pip install --upgrade pip setuptools wheel && \
+RUN pip install --upgrade pip && \
     pip install -r requirements.txt --no-cache-dir
 
 # Clonar MT3 mínimo
