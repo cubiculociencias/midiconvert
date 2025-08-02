@@ -16,15 +16,21 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# Copiar requirements.txt e instalar dependencias principales.
-# t5x ha sido removido de requirements.txt para evitar el error.
+# Copiar requirements.txt e instalar dependencias principales
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Instalar t5x y mt3 directamente desde GitHub, como lo hace el Colab.
-RUN pip install git+https://https://github.com/google-research/t5x.git@main && \
-    git clone --depth 1 --branch=main https://github.com/magenta/mt3.git && \
+# Instalar t5x y flax desde sus repositorios (como en el foro)
+RUN pip install --upgrade "jax[cpu]" && \
+    pip install --upgrade git+https://github.com/google/flax.git && \
+    git clone https://github.com/google-research/t5x.git && \
+    sed -i 's!flax @ git+https://github.com/google/flax#egg=flax!flax!g' t5x/setup.py && \
+    cd t5x && pip install -e . && cd .. && \
+    rm -rf t5x
+
+# Instalar mt3
+RUN git clone --depth 1 --branch=main https://github.com/magenta/mt3.git && \
     pip install ./mt3 && \
     rm -rf mt3
 
