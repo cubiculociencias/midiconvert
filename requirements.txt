@@ -10,4 +10,4 @@ flax==0.5.1
 gin-config==0.5.0
 google-cloud-storage==2.5.0
 protobuf==3.20.3
-git+https://github.com/google-research/t5x.git@a03b78a
+
