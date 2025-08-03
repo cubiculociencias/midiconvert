@@ -16,15 +16,16 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# 3. Instalar dependencias COMPATIBLES con Python 3.9
+# 3. Instalar JAX/JAXlib COMPATIBLES desde repositorio alternativo
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt && \
     pip install --no-cache-dir \
     "jax[cpu]==0.3.15" \
     "jaxlib==0.3.15" \
-    -r requirements.txt
+    -f https://storage.googleapis.com/jax-releases/libtpu_releases.html
 
-# 4. Instalar T5X desde fuente (método oficial)
+# 4. Instalar T5X desde fuente
 RUN pip install "flax==0.5.1" && \
     git clone https://github.com/google-research/t5x.git && \
     sed -i 's/flax @ git+https:\/\/github.com\/google\/flax#egg=flax/flax==0.5.1/g' t5x/setup.py && \
