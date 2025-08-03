@@ -1,30 +1,40 @@
 FROM python:3.9-slim
 
-# 1. Dependencias del sistema
+# Instalar dependencias del sistema necesarias
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libfluidsynth3 build-essential libasound2-dev libjack-dev curl git \
+    libfluidsynth3 \
+    build-essential \
+    libasound2-dev \
+    libjack-dev \
+    curl \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
-# 2. Configuración básica
-ENV PYTHONUNBUFFERED=1 PYTHONPATH=/app
+# Variables de entorno
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
+
 WORKDIR /app
 
-# 3. Instalar dependencias básicas
+# Copiar requirements.txt e instalar las dependencias principales.
+# t5x y mt3 han sido removidos de este archivo.
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# 4. Instalar T5X desde GitHub (¡SOLUCIÓN CLAVE!)
-RUN git clone https://github.com/google-research/t5x.git && \
-    sed -i 's/flax @ git+https:\/\/github.com\/google\/flax#egg=flax/flax==0.5.1/g' t5x/setup.py && \
-    cd t5x && pip install -e . && cd .. && \
-    rm -rf t5x
-
-# 5. Instalar MT3
-RUN git clone --depth 1 --branch=main https://github.com/magenta/mt3.git && \
-    pip install ./mt3 && \
+# ✅ Instalar t5x y mt3 desde sus repositorios de GitHub.
+# Esta es la forma correcta de instalarlos, como lo hace el Colab.
+RUN pip install git+https://github.com/google-research/t5x.git@main && \
+    git clone --depth 1 --branch=main https://github.com/magenta/mt3 && \
+    mv mt3/mt3 ./mt3 && \
     rm -rf mt3
 
+# Copiar el resto del código de la app
 COPY . .
 
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# Comando para lanzar la app
 CMD ["gunicorn", "--bind", ":8080", "--workers", "1", "--threads", "4", "--timeout", "120", "app:app"]
